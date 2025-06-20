@@ -89,3 +89,74 @@ docker-compose up --build
 docker-compose up --build
 
 ```
+
+🐳 Everything spins up with a single command via Docker Compose.
+
+---
+
+## 🚀 Future Enhancements
+
+The following features are planned for future versions of the platform:
+
+### 🧠 Advanced Intelligence
+
+- ✅ **LLM Integration (GPT-4, Gemini, Claude):**  
+  Enhance clause understanding and provide natural language-based legal Q&A.
+
+- ✅ **Predictive Analytics:**  
+  Analyze document history and content to predict risks, disputes, or compliance issues.
+
+---
+
+### 🔍 Document Expansion
+
+- ✅ **OCR Integration:**  
+  Extract text from scanned documents and images using Tesseract OCR.
+
+- ✅ **Multi-language Support:**  
+  Support for documents in Hindi, regional languages, and other global languages.
+
+- ✅ **Clause Comparison & Playbook Matching:**  
+  Automatically compare clauses with standard templates or playbooks and highlight deviations.
+
+---
+
+### 🧑‍💼 User & Platform Features
+
+- ✅ **User Authentication & Profiles:**  
+  Login/signup for secure access and personalized document management.
+
+- ✅ **Cloud Deployment:**  
+  Deploy the platform on AWS, GCP, or Azure for better scalability, access, and collaboration.
+
+- ✅ **Smart Drafting System:**  
+  Auto-generate drafts of agreements, summaries, and legal notes using intelligent templates.
+
+- ✅ **Conversational AI:**  
+  Let users ask document-related questions in natural language (e.g., _“Is there any termination clause?”_) and get AI-powered answers.
+
+---
+
+## 📎 Sample Use Case
+
+> 📄 Upload a 12-page employment contract →  
+> 🤖 Get key terms extracted, risky non-compete clause flagged, and a 6-line summary →  
+> ✅ Save time, reduce risk, and make informed decisions in minutes.
+
+---
+
+## 📌 Conclusion
+
+The **AI Legal Document Analyzer** is more than just a parser — it’s a step toward smarter, AI-assisted legal analysis. It empowers:
+
+- 💼 Businesses to review contracts faster  
+- 📚 Students to understand legal language better  
+- 🧑‍⚖️ Lawyers to get a head start on deeper reviews  
+
+> *"Automating legal understanding — one document at a time."*
+
+---
+
+
+**Made with ❤️ by Kunal **  
+📧 [kunalmeena1311@gmail.com](mailto:kunalmeena1311@gmail.com) • 🔗 [LinkedIn](https://linkedin.com/in/kunal8859)

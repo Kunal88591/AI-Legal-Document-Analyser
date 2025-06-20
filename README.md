@@ -74,3 +74,18 @@ All components are **containerized using Docker**:
 ```bash
 docker-compose up --build
 ``` 
+
+---
+
+## 🧩 Deployment & Ports
+
+```bash
+# Service Ports:
+- Spring Boot backend: http://localhost:8080
+- Flask NLP microservice: http://localhost:5000
+- React frontend: http://localhost:3000
+
+# Start everything with:
+docker-compose up --build
+
+```

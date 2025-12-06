@@ -158,5 +158,5 @@ The **AI Legal Document Analyzer** is more than just a parser — it’s a step 
 ---
 
 
-**Made with ❤️ by Kunal Meena**  
+**Made with ❤️ by Kunal**  
 📧 [kunalmeena1311@gmail.com](mailto:kunalmeena1311@gmail.com) • 🔗[LinkedIn](https://linkedin.com/in/kunal8859)

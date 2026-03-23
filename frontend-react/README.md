@@ -1,70 +1,61 @@
-# Getting Started with Create React App
+# Frontend React App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This package contains the user-facing dashboard for AI Legal Document Analyser.
 
-## Available Scripts
+It is built for one workflow:
 
-In the project directory, you can run:
+1. upload a legal document
+2. send it for structured analysis
+3. review the findings in a high-signal dashboard
+4. export or simplify the result
 
-### `npm start`
+## What The Frontend Does
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- drag and drop file upload
+- jurisdiction selection
+- private mode toggle
+- structured summary rendering
+- clause tags and risk cards
+- search inside the uploaded document
+- text-to-speech for the summary
+- PDF export of the analysis report
+- simplified plain-language output
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Main UI Files
 
-### `npm test`
+- [src/DocumentUpload.js](src/DocumentUpload.js)
+- [src/DocumentUpload.css](src/DocumentUpload.css)
+- [src/App.js](src/App.js)
+- [src/App.css](src/App.css)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## Run Scripts
 
-### `npm run build`
+- `npm start` - run the development server
+- `npm test` - run the test runner
+- `npm run build` - create a production bundle
+- `npm run eject` - expose CRA internals
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Data Flow
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+The upload screen sends multipart form data to the backend analysis endpoint.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+The response is normalized and rendered into:
 
-### `npm run eject`
+- summary cards
+- risk visualization
+- clause tags
+- highlights
+- timeline entries
+- quick answers
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## Local Development
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+If you run the frontend locally, make sure it can reach the backend API used by the upload flow.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+When the full stack is running through Docker Compose, the frontend and backend are meant to work together as one experience.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Notes For Contributors
 
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- Keep the upload flow resilient to backend error messages.
+- Keep the dashboard readable even when the analysis result is sparse.
+- Treat the document view and the summary view as two representations of the same source text.

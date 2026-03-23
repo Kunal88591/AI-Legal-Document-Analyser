@@ -7,6 +7,8 @@ services:
       - "8080:8080"
     depends_on:
       - nlp-service
+    environment:
+      - NLP_SERVICE_URL=http://nlp-service:5000
 
   nlp-service:
     build: ./python-ml-services/nlp-service
@@ -17,5 +19,3 @@ services:
     build: ./frontend-react
     ports:
       - "3000:3000"
-    environment:
-      - REACT_APP_API_URL=http://backend:8080

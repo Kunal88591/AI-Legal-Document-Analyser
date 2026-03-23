@@ -1,14 +1,31 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import axios from 'axios';
+import { jsPDF } from 'jspdf';
 import './DocumentUpload.css';
+
+const API_BASE_URL = (process.env.REACT_APP_API_URL || '').replace(/\/$/, '');
+
+const PREBUILT_QUESTIONS = [
+  'Is there a penalty?',
+  'Can I leave early?',
+  'What are my risks?'
+];
 
 function DocumentUpload() {
   const [file, setFile] = useState(null);
   const [fileName, setFileName] = useState('No file selected');
   const [result, setResult] = useState(null);
+  const [previousText, setPreviousText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedQuestion, setSelectedQuestion] = useState('');
+  const [eli15Text, setEli15Text] = useState('');
+  const [eli15Loading, setEli15Loading] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
+  const [jurisdiction, setJurisdiction] = useState('Global');
+  const [privateMode, setPrivateMode] = useState(true);
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -37,6 +54,38 @@ function DocumentUpload() {
     }
   };
 
+  const normalizeResult = (payload) => {
+    if (!payload) {
+      return null;
+    }
+    if (typeof payload === 'string') {
+      try {
+        return JSON.parse(payload);
+      } catch {
+        return { summary: payload };
+      }
+    }
+    return payload;
+  };
+
+  const formatRequestError = (err) => {
+    const responseData = err.response?.data;
+    if (typeof responseData === 'string' && responseData.trim()) {
+      return responseData;
+    }
+
+    if (responseData && typeof responseData === 'object') {
+      return (
+        responseData.message ||
+        responseData.error ||
+        responseData.detail ||
+        JSON.stringify(responseData)
+      );
+    }
+
+    return err.message || 'Failed to analyze document. Please try again.';
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
@@ -51,32 +100,202 @@ function DocumentUpload() {
 
     const formData = new FormData();
     formData.append('file', file);
+    formData.append('jurisdiction', jurisdiction);
 
     try {
-      const response = await axios.post(
-        'http://localhost:8080/api/documents/upload',
-        formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data'
-          }
-        }
-      );
-      setResult(response.data);
+      const response = await axios.post(`${API_BASE_URL}/api/documents/upload`, formData);
+      if (result?.text) {
+        setPreviousText(result.text);
+      }
+
+      const normalized = normalizeResult(response.data);
+      setResult(normalized);
+      setSelectedQuestion('');
+      setSearchTerm('');
+      setEli15Text(normalized?.simpleSummary || '');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to analyze document. Please try again.');
+      setError(formatRequestError(err));
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSimplify = async () => {
+    if (!result?.summary) {
+      return;
+    }
+
+    setEli15Loading(true);
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/documents/simplify`, {
+        text: result.summary
+      });
+      setEli15Text(response.data?.simpleText || result.simpleSummary || 'No simplified summary available.');
+    } catch {
+      setEli15Text(result.simpleSummary || 'Could not simplify right now.');
+    } finally {
+      setEli15Loading(false);
+    }
+  };
+
+  const readSummaryAloud = () => {
+    if (!window.speechSynthesis || !result) {
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(
+      `${result.summaryPoints?.join('. ') || ''}. Overall risk is ${result.riskLevel || 'Unknown'}.`
+    );
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const downloadPdfReport = () => {
+    if (!result) {
+      return;
+    }
+
+    const doc = new jsPDF();
+    let y = 18;
+
+    doc.setFontSize(16);
+    doc.text('AI Legal Document Analyzer Report', 14, y);
+    y += 10;
+
+    doc.setFontSize(11);
+    const summaryLines = [
+      `File: ${fileName}`,
+      `Jurisdiction: ${result.jurisdiction || jurisdiction}`,
+      `Risk Score: ${result.riskScore || 0}% (${result.riskLevel || 'Unknown'})`,
+      `Private Mode: ${privateMode ? 'Enabled' : 'Disabled'}`,
+      ''
+    ];
+    doc.text(summaryLines, 14, y);
+    y += 28;
+
+    doc.setFontSize(12);
+    doc.text('5-Line Summary', 14, y);
+    y += 8;
+
+    const points = result.summaryPoints || [];
+    points.forEach((point) => {
+      const wrapped = doc.splitTextToSize(`- ${point}`, 180);
+      doc.text(wrapped, 14, y);
+      y += wrapped.length * 6;
+    });
+
+    y += 4;
+    doc.text('Clause Tags: ' + ((result.clauseTags || []).join(', ') || 'None'), 14, y);
+    y += 10;
+
+    doc.text('Highlighted Risks', 14, y);
+    y += 8;
+
+    (result.highlights || [])
+      .filter((item) => item.severity === 'risky')
+      .slice(0, 8)
+      .forEach((item) => {
+        const wrapped = doc.splitTextToSize(`- [Line ${item.lineNumber}] ${item.text}`, 180);
+        doc.text(wrapped, 14, y);
+        y += wrapped.length * 6;
+      });
+
+    doc.save('legal-analysis-summary.pdf');
+  };
+
+  const searchResults = useMemo(() => {
+    if (!result?.text || !searchTerm.trim()) {
+      return [];
+    }
+
+    const lowered = searchTerm.toLowerCase();
+    return result.text
+      .split(/\r?\n/)
+      .map((line, index) => ({ text: line.trim(), lineNumber: index + 1 }))
+      .filter((line) => line.text && line.text.toLowerCase().includes(lowered))
+      .slice(0, 12);
+  }, [result, searchTerm]);
+
+  const comparison = useMemo(() => {
+    if (!previousText || !result?.text) {
+      return null;
+    }
+
+    const oldSet = new Set(previousText.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
+    const newSet = new Set(result.text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean));
+
+    let added = 0;
+    let removed = 0;
+
+    newSet.forEach((line) => {
+      if (!oldSet.has(line)) {
+        added += 1;
+      }
+    });
+
+    oldSet.forEach((line) => {
+      if (!newSet.has(line)) {
+        removed += 1;
+      }
+    });
+
+    return { added, removed };
+  }, [previousText, result]);
+
+  const distribution = result?.clauseDistribution || {};
+  const totalClauses = Math.max(
+    1,
+    (distribution.important || 0) +
+      (distribution.warning || 0) +
+      (distribution.risky || 0) +
+      (distribution.neutral || 0)
+  );
+
+  const riskyPercent = Math.round(((distribution.risky || 0) / totalClauses) * 100);
+  const warningPercent = Math.round(((distribution.warning || 0) / totalClauses) * 100);
+  const importantPercent = Math.round(((distribution.important || 0) / totalClauses) * 100);
+  const neutralPercent = 100 - riskyPercent - warningPercent - importantPercent;
+
+  const questionAnswer = result?.qa?.[selectedQuestion];
+
+  const appClassName = `document-upload-container ${darkMode ? 'dark' : ''}`;
+
   return (
-    <div className="document-upload-container">
+    <div className={appClassName}>
       <div className="upload-card">
+        <div className="top-actions">
+          <button className="toggle-btn" type="button" onClick={() => setDarkMode((prev) => !prev)}>
+            {darkMode ? 'Switch to Light' : 'Switch to Dark'}
+          </button>
+          <label className="private-mode-toggle">
+            <input
+              type="checkbox"
+              checked={privateMode}
+              onChange={(e) => setPrivateMode(e.target.checked)}
+            />
+            <span>Private Mode (no storage)</span>
+          </label>
+        </div>
+
         <h1 className="app-title">Legal Document Analyzer</h1>
-        <p className="app-subtitle">Upload your legal documents for entity extraction and summarization</p>
+        <p className="app-subtitle">Fast legal clarity with smart risks, highlights, and one-click simplification</p>
         
         <form className="upload-form" onSubmit={handleSubmit}>
+          <div className="jurisdiction-row">
+            <label htmlFor="jurisdiction">Jurisdiction</label>
+            <select
+              id="jurisdiction"
+              value={jurisdiction}
+              onChange={(e) => setJurisdiction(e.target.value)}
+            >
+              <option value="Global">Global</option>
+              <option value="India">India</option>
+              <option value="USA">USA</option>
+              <option value="EU">EU</option>
+            </select>
+          </div>
+
           <div 
             className={`file-dropzone ${isDragging ? 'dragging' : ''}`}
             onDragOver={handleDragOver}
@@ -87,7 +306,7 @@ function DocumentUpload() {
               <input
                 type="file"
                 id="file-upload"
-                accept=".pdf,.doc,.docx,.txt"
+                accept=".pdf,.docx,.txt"
                 onChange={handleFileChange}
                 className="file-input"
               />
@@ -99,7 +318,7 @@ function DocumentUpload() {
                 </div>
                 <span className="dropzone-text">Drag & drop your file here or <span className="browse-link">browse files</span></span>
                 <span className="file-name">{fileName}</span>
-                <span className="file-types">Supported formats: PDF, DOC, DOCX, TXT</span>
+                <span className="file-types">Supported formats: PDF, DOCX, TXT</span>
               </label>
             </div>
           </div>
@@ -136,6 +355,95 @@ function DocumentUpload() {
             <h2>Analysis Results</h2>
             <div className="result-badge">Success</div>
           </div>
+
+          <div className="summary-card">
+            <div className="summary-card-header">
+              <h3>Quick 5-Line Summary</h3>
+              <div className="summary-actions">
+                <button type="button" onClick={downloadPdfReport}>Download PDF</button>
+                <button type="button" onClick={readSummaryAloud}>Listen</button>
+              </div>
+            </div>
+            <ul>
+              {(result.summaryPoints || []).map((point, idx) => (
+                <li key={idx}>{point}</li>
+              ))}
+            </ul>
+            {comparison && (
+              <p className="comparison-line">
+                Version diff vs previous upload: +{comparison.added} lines, -{comparison.removed} lines
+              </p>
+            )}
+          </div>
+
+          <div className="risk-meter-card">
+            <h3>Risk Meter</h3>
+            <div className="risk-meter-track">
+              <div
+                className={`risk-meter-fill ${(result.riskLevel || '').toLowerCase()}`}
+                style={{ width: `${result.riskScore || 0}%` }}
+              />
+            </div>
+            <p className="risk-caption">
+              Risk Level: {(result.riskScore || 0)}% ({result.riskLevel || 'Unknown'})
+            </p>
+          </div>
+
+          <div className="tags-and-chart-grid">
+            <div className="tag-card">
+              <h3>Clause Tags</h3>
+              <div className="tag-list">
+                {(result.clauseTags || []).length ? (
+                  result.clauseTags.map((tag) => <span key={tag} className="tag-chip">{tag}</span>)
+                ) : (
+                  <p>No high-risk tags detected.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="pie-card">
+              <h3>Clause Distribution</h3>
+              <div
+                className="pie-visual"
+                style={{
+                  background: `conic-gradient(#ff4d4f 0 ${riskyPercent}%, #f6b93b ${riskyPercent}% ${riskyPercent + warningPercent}%, #2ecc71 ${riskyPercent + warningPercent}% ${riskyPercent + warningPercent + importantPercent}%, #c9d6df ${riskyPercent + warningPercent + importantPercent}% 100%)`
+                }}
+              />
+              <div className="legend-row">
+                <span>Risky {riskyPercent}%</span>
+                <span>Warning {warningPercent}%</span>
+                <span>Important {importantPercent}%</span>
+                <span>Neutral {neutralPercent}%</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="heatmap-card">
+            <h3>Risk Heatmap</h3>
+            <div className="heatmap-grid">
+              {[...Array(10)].map((_, index) => {
+                const active = index < Math.ceil((result.riskScore || 0) / 10);
+                return <div key={index} className={`heat-cell ${active ? 'active' : ''}`} />;
+              })}
+            </div>
+          </div>
+
+          <div className="result-section">
+            <h3 className="section-title">Highlighted Document Viewer</h3>
+            <div className="document-viewer">
+              {(result.text || '').split(/\r?\n/).map((line, index) => {
+                const highlight = (result.highlights || []).find((item) => item.lineNumber === index + 1);
+                const lineClass = highlight?.severity || 'neutral';
+
+                return (
+                  <div key={`${index}-${line.slice(0, 20)}`} className={`viewer-line ${lineClass}`}>
+                    <span className="viewer-line-no">{index + 1}</span>
+                    <span className="viewer-line-text">{line || ' '}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
           
           <div className="result-section">
             <h3 className="section-title">
@@ -169,6 +477,75 @@ function DocumentUpload() {
             <div className="summary-box">
               {result.summary}
             </div>
+            <button className="eli15-btn" type="button" onClick={handleSimplify} disabled={eli15Loading}>
+              {eli15Loading ? 'Simplifying...' : 'Explain Like I am 15'}
+            </button>
+            {eli15Text && <div className="eli15-output">{eli15Text}</div>}
+          </div>
+
+          <div className="result-section">
+            <h3 className="section-title">Highlight Important Lines</h3>
+            <div className="highlight-list">
+              {(result.highlights || []).slice(0, 20).map((item, idx) => (
+                <div key={idx} className={`highlight-item ${item.severity}`}>
+                  <span className="line-no">Line {item.lineNumber}</span>
+                  <span>{item.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="result-section">
+            <h3 className="section-title">Important Dates Timeline</h3>
+            <div className="timeline-list">
+              {(result.timeline || []).length ? (
+                result.timeline.map((event, idx) => (
+                  <div key={idx} className="timeline-item">
+                    <span>{event.label}</span>
+                    <strong>{event.value}</strong>
+                  </div>
+                ))
+              ) : (
+                <p>No explicit dates detected.</p>
+              )}
+            </div>
+          </div>
+
+          <div className="result-section">
+            <h3 className="section-title">Pre-Built Questions</h3>
+            <div className="question-row">
+              {PREBUILT_QUESTIONS.map((question) => (
+                <button
+                  key={question}
+                  type="button"
+                  className={`question-btn ${selectedQuestion === question ? 'active' : ''}`}
+                  onClick={() => setSelectedQuestion(question)}
+                >
+                  {question}
+                </button>
+              ))}
+            </div>
+            {questionAnswer && <div className="answer-box">{questionAnswer}</div>}
+          </div>
+
+          <div className="result-section">
+            <h3 className="section-title">Search Inside Document</h3>
+            <input
+              className="search-input"
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search words like salary, notice, penalty"
+            />
+            {searchResults.length > 0 && (
+              <div className="search-results">
+                {searchResults.map((item, idx) => (
+                  <p key={idx}>
+                    <strong>Line {item.lineNumber}:</strong> {item.text}
+                  </p>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

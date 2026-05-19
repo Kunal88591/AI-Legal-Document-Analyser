@@ -1,21 +1,50 @@
 version: '3.8'
 
 services:
+  gateway:
+    image: nginx:1.27-alpine
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
   backend:
-    build: ./backend-java
+    build: ./apps/backend
     ports:
       - "8080:8080"
     depends_on:
       - nlp-service
     environment:
       - NLP_SERVICE_URL=http://nlp-service:5000
+      - LEGAL_STORAGE_DIR=/data
+    volumes:
+      - legal-backend-data:/data
 
   nlp-service:
-    build: ./python-ml-services/nlp-service
+    build: ./apps/ai-service
     ports:
       - "5000:5000"
+    environment:
+      - LEGAL_DATA_DIR=/data
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=llama3.1:8b
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - legal-nlp-data:/data
 
   frontend:
-    build: ./frontend-react
+    build:
+      context: ./apps/frontend
+      args:
+        VITE_API_URL: ""
     ports:
-      - "3000:3000"
+      - "3000:80"
+
+volumes:
+  legal-backend-data:
+  legal-nlp-data:
+

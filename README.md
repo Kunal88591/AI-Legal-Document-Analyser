@@ -114,9 +114,9 @@ It provides:
 
 Primary UI files:
 
-- [frontend-react/src/DocumentUpload.js](frontend-react/src/DocumentUpload.js)
-- [frontend-react/src/DocumentUpload.css](frontend-react/src/DocumentUpload.css)
-- [frontend-react/src/App.js](frontend-react/src/App.js)
+- [apps/frontend/src/DocumentUpload.js](apps/frontend/src/DocumentUpload.js)
+- [apps/frontend/src/DocumentUpload.css](apps/frontend/src/DocumentUpload.css)
+- [apps/frontend/src/App.js](apps/frontend/src/App.js)
 
 #### Spring Boot Backend
 
@@ -133,7 +133,7 @@ Its responsibilities are:
 
 Primary backend file:
 
-- [backend-java/src/main/java/com/legalanalyzer/controller/DocumentController.java](backend-java/src/main/java/com/legalanalyzer/controller/DocumentController.java)
+- [apps/backend/src/main/java/com/legalanalyzer/controller/DocumentController.java](apps/backend/src/main/java/com/legalanalyzer/controller/DocumentController.java)
 
 #### Python NLP Service
 
@@ -150,7 +150,7 @@ It currently performs:
 
 Primary NLP file:
 
-- [python-ml-services/nlp-service/app.py](python-ml-services/nlp-service/app.py)
+- [apps/ai-service/app/main.py](apps/ai-service/app/main.py)
 
 ## Data Flow
 
@@ -197,21 +197,24 @@ This makes the result usable for both:
 ```text
 /
 ├── docker-compose.yml
-├── backend-java/
-│   ├── Dockerfile
-│   ├── pom.xml
-│   └── src/main/
-│       ├── java/com/legalanalyzer/
-│       └── resources/
-├── frontend-react/
-│   ├── Dockerfile
-│   ├── package.json
-│   └── src/
-└── python-ml-services/
-    └── nlp-service/
-        ├── Dockerfile
-        ├── requirements.txt
-        └── app.py
+├── apps/
+│   ├── backend/
+│   │   ├── Dockerfile
+│   │   ├── pom.xml
+│   │   └── src/main/
+│   │       ├── java/com/legalanalyzer/
+│   │       └── resources/
+│   ├── frontend/
+│   │   ├── Dockerfile
+│   │   ├── package.json
+│   │   └── src/
+│   └── ai-service/
+│       ├── Dockerfile
+│       ├── requirements.txt
+│       └── app/
+│           └── main.py
+├── packages/
+└── infrastructure/
 ```
 
 ## Local And Docker Run Modes

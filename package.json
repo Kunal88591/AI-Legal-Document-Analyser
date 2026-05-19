@@ -1,10 +1,13 @@
 {
-  "dependencies": {
-    "axios": "^1.9.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0"
-  },
-  "devDependencies": {
-    "react-scripts": "^5.0.1"
+  "name": "legal-ai-platform",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:docker": "docker compose up --build",
+    "lint": "echo 'lint: configure per-app'",
+    "test": "echo 'test: configure per-app'"
   }
 }

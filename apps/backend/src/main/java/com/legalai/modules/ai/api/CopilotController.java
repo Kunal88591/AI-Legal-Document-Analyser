@@ -5,6 +5,7 @@ import com.legalai.modules.ai.dto.ChatRequest;
 import com.legalai.modules.ai.dto.ChatResponse;
 import com.legalai.modules.ai.dto.HistoryResponse;
 import com.legalai.modules.ai.dto.RetrievalRequest;
+import com.legalai.modules.ai.service.ChatHistoryService;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -20,14 +21,16 @@ import reactor.core.publisher.Mono;
 public class CopilotController {
 
     private final NlpGatewayClient nlpGatewayService;
+    private final ChatHistoryService chatHistoryService;
 
-    public CopilotController(NlpGatewayClient nlpGatewayService) {
+    public CopilotController(NlpGatewayClient nlpGatewayService, ChatHistoryService chatHistoryService) {
         this.nlpGatewayService = nlpGatewayService;
+        this.chatHistoryService = chatHistoryService;
     }
 
     @PostMapping("/chat")
     public Mono<ChatResponse> chat(@RequestBody ChatRequest request) {
-        return nlpGatewayService.chat(request);
+        return chatHistoryService.chatAndPersist(request);
     }
 
     @PostMapping("/retrieve")
@@ -37,6 +40,6 @@ public class CopilotController {
 
     @GetMapping("/history/{documentId}")
     public Mono<HistoryResponse> history(@PathVariable String documentId) {
-        return nlpGatewayService.history(documentId);
+        return chatHistoryService.history(documentId);
     }
 }

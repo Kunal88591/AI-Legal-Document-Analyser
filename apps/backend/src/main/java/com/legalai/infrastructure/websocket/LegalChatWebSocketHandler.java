@@ -1,10 +1,10 @@
 package com.legalai.infrastructure.websocket;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.legalai.infrastructure.ai.NlpGatewayClient;
 import com.legalai.modules.ai.dto.ChatRequest;
 import com.legalai.modules.ai.dto.ChatResponse;
 import com.legalai.modules.ai.dto.ChatTurn;
+import com.legalai.modules.ai.service.ChatHistoryService;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
@@ -20,12 +20,12 @@ import java.util.Map;
 @Component
 public class LegalChatWebSocketHandler implements WebSocketHandler {
 
-    private final NlpGatewayClient nlpGatewayService;
     private final ObjectMapper objectMapper;
+    private final ChatHistoryService chatHistoryService;
 
-    public LegalChatWebSocketHandler(NlpGatewayClient nlpGatewayService, ObjectMapper objectMapper) {
-        this.nlpGatewayService = nlpGatewayService;
+    public LegalChatWebSocketHandler(ObjectMapper objectMapper, ChatHistoryService chatHistoryService) {
         this.objectMapper = objectMapper;
+        this.chatHistoryService = chatHistoryService;
     }
 
     @Override
@@ -42,7 +42,7 @@ public class LegalChatWebSocketHandler implements WebSocketHandler {
             Map<String, Object> payload = objectMapper.readValue(rawPayload, Map.class);
             String messageId = stringValue(payload, "messageId", uuidMessageId());
             ChatRequest request = toRequest(payload);
-            return nlpGatewayService.chat(request)
+                return chatHistoryService.chatAndPersist(request)
                 .flatMapMany(response -> streamResponse(session, response, messageId))
                     .onErrorResume(error -> Flux.just(session.textMessage(serialize(Map.of(
                             "type", "error",
@@ -74,7 +74,7 @@ public class LegalChatWebSocketHandler implements WebSocketHandler {
                 : List.of();
 
         return new ChatRequest(
-                stringValue(payload, "documentId", "unknown"),
+            stringValue(payload, "documentId", ""),
                 stringValue(payload, "message", ""),
                 stringValue(payload, "mode", "copilot"),
                 stringValue(payload, "jurisdiction", "Global"),

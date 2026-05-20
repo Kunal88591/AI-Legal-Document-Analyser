@@ -1,263 +1,240 @@
-# AI Legal Document Analyser
+# Legal AI Platform (v2.1)
 
-AI Legal Document Analyser is a three-service legal review platform that turns dense contracts, NDAs, service agreements, and other documents into a structured, easy-to-scan report.
+AI Legal Document Analyser has evolved into a production-ready, local-first **Legal AI Platform** built as a monorepo with a modern edge gateway, a reactive Spring backend, and a FastAPI intelligence service.
 
-It is designed for the common first-pass review problem:
+It targets first-pass legal review: upload contracts/NDAs, generate structured intelligence, ask Copilot-style questions (REST + WebSocket streaming), and visualize key obligations/dates via graph + timeline.
 
-- legal documents are long and difficult to read quickly
-- important obligations are buried in dense prose
-- users need a fast way to spot risks, deadlines, money terms, and termination language
-- non-lawyers need a simpler explanation without losing the legal detail
+## What’s New in v2.1
 
-This project solves that by combining a React dashboard, a Spring Boot document-ingestion layer, and a Python NLP service that produces structured contract intelligence.
+- **Enterprise monorepo layout:** `apps/`, `packages/`, `infrastructure/`, `docs/`
+- **Edge gateway (nginx):** production-style routing (`/` → UI, `/api/*` + `/ws/*` → backend)
+- **Frontend upgraded:** React 19 + Vite + feature-driven structure
+- **AI runtime upgraded:** Flask → **FastAPI** (compatibility endpoints preserved)
+- **Persistence added:** **PostgreSQL (R2DBC + Flyway)** + **Redis** in Docker Compose
+- **Chat history persistence:** Copilot chat/history stored in Postgres when configured, with safe fallback
+- **Shared API contracts:** `packages/shared-types` (Zod schemas) used by the frontend API client
+- **Operational hardening:** request correlation via `X-Request-Id`, health endpoints, health-checked compose startup
+- **Docker reliability fixes:** frontend Docker build supports monorepo deps; AI service uses **CPU-only PyTorch** wheels to avoid CUDA bloat
+
+## Quickstart (Docker)
+
+Start the full stack:
+
+```bash
+docker compose up -d --build
+```
+
+Open:
+
+- **Gateway (recommended):** http://localhost
+- **Frontend (direct):** http://localhost:3000
+- **Backend (direct):** http://localhost:8080
+- **AI service (direct):** http://localhost:5000
+
+Health:
+
+- Backend actuator health: `GET http://localhost:8080/actuator/health`
+
+Stop:
+
+```bash
+docker compose down
+```
+
+## Architecture
+
+### Runtime Topology
+
+```mermaid
+flowchart TB
+   U[User / Browser]
+
+   subgraph Edge
+      G[nginx gateway]
+   end
+
+   subgraph Apps
+      F[Frontend: React + Vite]
+      B[Backend: Spring Boot 3 WebFlux]
+      A[AI Service: FastAPI]
+   end
+
+   subgraph Data
+      P[(PostgreSQL)]
+      R[(Redis)]
+   end
+
+   U -->|HTTP :80| G
+   G -->|/| F
+   G -->|/api/*| B
+   G -->|/ws/*| B
+
+   B -->|REST (compat endpoints)| A
+   B -->|R2DBC| P
+   B -->|Redis reactive| R
+```
+
+### Core Request Flows
+
+#### 1) Document Upload → Analysis
+
+```mermaid
+sequenceDiagram
+   autonumber
+   participant UI as Frontend
+   participant GW as Gateway
+   participant BE as Backend
+   participant AI as AI Service
+
+   UI->>GW: POST /api/documents/upload (multipart)
+   GW->>BE: Forward /api/documents/upload
+   BE->>BE: Extract text (PDFBox/POI/TXT)
+   BE->>AI: POST /api/analyze-document (multipart)
+   AI-->>BE: Analysis JSON
+   BE-->>UI: AnalysisResponse
+```
+
+#### 2) Copilot Chat (REST) + Postgres-backed History (when configured)
+
+```mermaid
+sequenceDiagram
+   autonumber
+   participant UI as Frontend
+   participant GW as Gateway
+   participant BE as Backend
+   participant DB as PostgreSQL
+   participant AI as AI Service
+
+   UI->>GW: POST /api/copilot/chat
+   GW->>BE: Forward /api/copilot/chat
+   BE->>AI: POST /api/copilot/chat
+   AI-->>BE: ChatResponse
+   alt Postgres configured
+      BE->>DB: INSERT conversation_messages (user + assistant)
+   end
+   BE-->>UI: ChatResponse
+
+   UI->>GW: GET /api/copilot/history/{documentId}
+   GW->>BE: Forward /api/copilot/history/{documentId}
+   alt Postgres configured
+      BE->>DB: SELECT messages ORDER BY created_at
+      DB-->>BE: turns[]
+      BE-->>UI: HistoryResponse
+   else No Postgres
+      BE->>AI: GET /api/copilot/history/{documentId}
+      AI-->>BE: HistoryResponse
+      BE-->>UI: HistoryResponse
+   end
+```
+
+#### 3) Copilot Streaming (WebSocket)
+
+```mermaid
+sequenceDiagram
+   autonumber
+   participant UI as Frontend
+   participant GW as Gateway
+   participant WS as Backend WS (/ws/copilot)
+   participant AI as AI Service
+
+   UI->>GW: WS connect /ws/copilot
+   GW->>WS: Upgrade websocket
+   UI->>WS: {documentId, message, history, ...}
+   WS->>AI: POST /api/copilot/chat
+   AI-->>WS: ChatResponse
+   WS-->>UI: chunk frames (type=chunk)
+   WS-->>UI: done frame (type=done)
+```
+
+### Intelligence Views (Graph + Timeline)
+
+```mermaid
+flowchart LR
+   UI[Frontend] -->|GET /api/intelligence/graph/{id}| BE[Backend]
+   BE -->|GET /api/intelligence/graph/{id}| AI[AI Service]
+   AI --> BE
+   BE --> UI
+
+   UI -->|GET /api/intelligence/timeline/{id}| BE
+   BE -->|GET /api/intelligence/timeline/{id}| AI
+```
+
+## Repository Structure
+
+```text
+.
+├── docker-compose.yml
+├── .env.example
+├── apps/
+│   ├── backend/        # Spring Boot 3 WebFlux API + websocket
+│   ├── frontend/       # React 19 + Vite UI
+│   └── ai-service/     # FastAPI intelligence service
+├── packages/
+│   └── shared-types/   # Zod schemas shared with the frontend
+├── infrastructure/
+│   └── nginx/          # Reverse proxy routing (/ /api /ws)
+└── docs/
+      ├── ARCHITECTURE.md
+      └── MIGRATION.md
+```
+
+## Key Code Entry Points
+
+Frontend:
+
+- `apps/frontend/src/main.jsx`
+- `apps/frontend/src/app/router/router.jsx`
+- `apps/frontend/src/features/dashboard/Dashboard.jsx`
+- `apps/frontend/src/shared/services/apiClient.js`
+
+Backend:
+
+- `apps/backend/src/main/java/com/legalai/LegalAiApplication.java`
+- `apps/backend/src/main/java/com/legalai/modules/documents/api/DocumentController.java`
+- `apps/backend/src/main/java/com/legalai/modules/ai/api/CopilotController.java`
+- `apps/backend/src/main/java/com/legalai/infrastructure/websocket/WebSocketConfig.java`
+
+AI service:
+
+- `apps/ai-service/app/main.py`
+- `apps/ai-service/app/api/routes/legacy.py` (compat routes)
+- `apps/ai-service/app/services/intelligence_engine.py`
+
+## API Surface (Backend)
+
+- `POST /api/documents/upload` (multipart)
+- `POST /api/documents/compare` (multipart)
+- `POST /api/documents/simplify` (json)
+- `POST /api/copilot/chat` (json)
+- `GET /api/copilot/history/{documentId}`
+- `GET /api/intelligence/graph/{documentId}`
+- `GET /api/intelligence/timeline/{documentId}`
+- `WS /ws/copilot`
+
+## Configuration
+
+See `.env.example` for the full set.
+
+Common settings:
+
+- `NLP_SERVICE_URL` (backend → AI service)
+- `LEGAL_STORAGE_DIR` (backend local storage)
+- `OLLAMA_BASE_URL`, `OLLAMA_MODEL` (AI service local model runtime)
+- `SPRING_R2DBC_URL`, `SPRING_FLYWAY_*` (Postgres)
+- `SPRING_DATA_REDIS_HOST`, `SPRING_DATA_REDIS_PORT` (Redis)
+
+## Tech Stack
+
+- **Frontend:** React 19, Vite, Tailwind, React Query, Zustand, React Hook Form, Zod
+- **Backend:** Spring Boot 3 WebFlux, WebSocket streaming, PDFBox, Apache POI, Actuator
+- **AI Service:** FastAPI, SpaCy, sentence-transformers, ChromaDB, LangChain, PyMuPDF, Tesseract
+- **Data:** PostgreSQL (Flyway migrations + R2DBC), Redis (reactive)
+- **Infra:** nginx gateway, Docker Compose
 
 ## Developer
 
 - **Name:** Kunal Meena
 - **GitHub:** Kunal88591
-
-## What The Product Does
-
-- Uploads `PDF`, `DOCX`, and `TXT` files
-- Extracts text from documents in the Java backend
-- Analyzes the content with a Python NLP service
-- Detects risky clauses, important dates, money values, and durations
-- Produces a 5-line summary, clause tags, highlights, a risk score, and a timeline
-- Supports jurisdiction-aware analysis, quick questions, search, text-to-speech, and PDF export
-- Presents the results in a dashboard that is easier to review than the raw file
-
-## Problem Statement
-
-Legal documents are usually written for precision, not readability.
-
-That creates three practical problems:
-
-1. Review time is high because the reader must inspect the full document manually.
-2. Risky language is easy to miss because it is spread across many clauses.
-3. Non-specialists often need a simpler explanation before they can decide what to do.
-
-This application aims to reduce the first-pass review burden by extracting the structure that matters most:
-
-- what kind of contract it is
-- which clauses look risky
-- what dates and deadlines matter
-- how severe the overall risk appears
-- what the document means in plain language
-
-## Solution Overview
-
-The system uses a layered approach:
-
-1. **Frontend presentation layer**
-   - Handles upload, drag and drop, filtering, search, summary display, speech playback, and PDF export.
-
-2. **Backend document layer**
-   - Accepts uploaded files, extracts plain text from PDFs and Word documents, and forwards normalized text to the NLP layer.
-
-3. **NLP intelligence layer**
-   - Performs rule-based and SpaCy-assisted analysis to detect clauses, extract facts, score risk, and generate structured JSON.
-
-This separation keeps the UI responsive, keeps file parsing away from the browser, and makes the analysis engine easy to evolve.
-
-## Architecture
-
-### At A Glance
-
-```mermaid
-flowchart TB
-   User[Developer / User]
-   UI[React dashboard]
-   API[Spring Boot API]
-   NLP[Python NLP engine]
-   Docker[Docker Compose]
-
-   User --> UI
-   UI --> API
-   API --> NLP
-   NLP --> API
-   API --> UI
-   Docker -. runs .-> UI
-   Docker -. runs .-> API
-   Docker -. runs .-> NLP
-```
-
-### High-Level Flow
-
-```mermaid
-flowchart LR
-    U[User uploads document] --> F[React frontend]
-    F --> B[Spring Boot backend]
-    B --> N[Flask + SpaCy NLP service]
-    N --> B
-    B --> F
-    F --> R[Dashboard: risks, highlights, summary, export]
-```
-
-### Service Responsibilities
-
-#### React Frontend
-
-The frontend is the user-facing analysis workspace.
-
-It provides:
-
-- drag and drop upload
-- jurisdiction selection
-- private mode toggle
-- plain-language summary view
-- clause tags and highlight cards
-- risk meter and clause distribution
-- search inside the analyzed text
-- quick questions
-- text-to-speech reading
-- PDF report export
-
-Primary UI files:
-
-- [apps/frontend/src/DocumentUpload.js](apps/frontend/src/DocumentUpload.js)
-- [apps/frontend/src/DocumentUpload.css](apps/frontend/src/DocumentUpload.css)
-- [apps/frontend/src/App.js](apps/frontend/src/App.js)
-
-#### Spring Boot Backend
-
-The backend is the document-processing gateway.
-
-Its responsibilities are:
-
-- accept multipart file uploads
-- detect file type
-- extract text from PDF, DOCX, or TXT files
-- forward the text to the NLP service
-- forward simplify requests to the NLP service
-- return structured responses and readable errors to the frontend
-
-Primary backend file:
-
-- [apps/backend/src/main/java/com/legalanalyzer/controller/DocumentController.java](apps/backend/src/main/java/com/legalanalyzer/controller/DocumentController.java)
-
-#### Python NLP Service
-
-The NLP service turns raw text into contract intelligence.
-
-It currently performs:
-
-- clause detection
-- risk categorization
-- fact extraction for dates, money, and durations
-- summary generation
-- document simplification
-- question-answer style responses
-
-Primary NLP file:
-
-- [apps/ai-service/app/main.py](apps/ai-service/app/main.py)
-
-## Data Flow
-
-1. The user uploads a file in the React app.
-2. The frontend sends the file and jurisdiction to `POST /api/documents/upload`.
-3. The backend reads the file and extracts text.
-4. The backend sends text to the NLP service `POST /analyze`.
-5. The NLP service returns structured JSON.
-6. The backend returns that JSON to the frontend.
-7. The frontend renders the results in a dashboard with summaries, risk scoring, highlights, and export tools.
-
-## Analysis Output
-
-The response is intentionally structured so the UI can render multiple views of the same document.
-
-Typical fields include:
-
-- `summary`
-- `simpleSummary`
-- `summaryPoints`
-- `riskScore`
-- `riskLevel`
-- `clauseTags`
-- `highlights`
-- `timeline`
-- `qa`
-- `facts`
-- `cleanOutput`
-
-This makes the result usable for both:
-
-- fast review by a non-technical user
-- deeper review by someone who wants the original clauses and extracted facts
-
-## Tech Stack
-
-- **Frontend:** React 19, axios, jsPDF
-- **Backend:** Spring Boot 3 WebFlux, PDFBox, Apache POI
-- **NLP:** Flask, SpaCy, regex extraction, rule-based clause detection
-- **Deployment:** Docker and Docker Compose
-
-## Repository Structure
-
-```text
-/
-├── docker-compose.yml
-├── apps/
-│   ├── backend/
-│   │   ├── Dockerfile
-│   │   ├── pom.xml
-│   │   └── src/main/
-│   │       ├── java/com/legalanalyzer/
-│   │       └── resources/
-│   ├── frontend/
-│   │   ├── Dockerfile
-│   │   ├── package.json
-│   │   └── src/
-│   └── ai-service/
-│       ├── Dockerfile
-│       ├── requirements.txt
-│       └── app/
-│           └── main.py
-├── packages/
-└── infrastructure/
-```
-
-## Local And Docker Run Modes
-
-### Docker Compose
-
-Recommended for the full stack.
-
-```bash
-docker compose up --build
-```
-
-Then open:
-
-- Frontend: http://localhost:3000
-- Backend: http://localhost:8080
-- NLP service: http://localhost:5000
-
-### Local Development
-
-Run the services in this order:
-
-1. Python NLP service
-2. Spring Boot backend
-3. React frontend
-
-If you run outside Docker, make sure the frontend can reach the backend API used by the upload flow.
-
-## API Endpoints
-
-- `POST /api/documents/upload` - upload a document for analysis
-- `POST /api/documents/simplify` - simplify a selected text block
-
-## Configuration
-
-Important runtime settings:
-
-- `NLP_SERVICE_URL` - backend URL for the Python NLP service
-- frontend API base URL - controls where the UI sends upload requests in local development
-
-## Why The Project Is Split This Way
-
-This architecture keeps each concern isolated:
 
 - the browser stays focused on interaction and presentation
 - the backend handles file compatibility and transport

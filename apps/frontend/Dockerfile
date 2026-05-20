@@ -1,15 +1,19 @@
 FROM node:20 AS build
-WORKDIR /app
+WORKDIR /repo
 
-COPY package*.json ./
+COPY package.json ./
+COPY apps/frontend/package.json ./apps/frontend/package.json
+COPY packages/shared-types/package.json ./packages/shared-types/package.json
 RUN npm install --legacy-peer-deps
 
-COPY . .
-ARG VITE_API_URL=http://localhost:8080
+COPY apps/frontend ./apps/frontend
+COPY packages/shared-types ./packages/shared-types
+
+ARG VITE_API_URL=
 ENV VITE_API_URL=${VITE_API_URL}
-RUN npm run build
+RUN npm --workspace apps/frontend run build
 
 FROM nginx:1.27-alpine
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /repo/apps/frontend/dist /usr/share/nginx/html
 EXPOSE 80
 

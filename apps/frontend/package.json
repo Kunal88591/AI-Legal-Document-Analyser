@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@legalai/shared-types": "file:../../packages/shared-types",
     "@tanstack/react-query": "^5.83.0",
     "axios": "^1.9.0",
     "d3": "^7.9.0",

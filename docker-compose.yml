@@ -16,12 +16,54 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - nlp-service
+      nlp-service:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     environment:
       - NLP_SERVICE_URL=http://nlp-service:5000
       - LEGAL_STORAGE_DIR=/data
+      - SPRING_R2DBC_URL=r2dbc:postgresql://postgres:5432/legalai
+      - SPRING_R2DBC_USERNAME=legalai
+      - SPRING_R2DBC_PASSWORD=legalai
+      - SPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/legalai
+      - SPRING_FLYWAY_USER=legalai
+      - SPRING_FLYWAY_PASSWORD=legalai
+      - SPRING_FLYWAY_ENABLED=true
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
     volumes:
       - legal-backend-data:/data
+
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=legalai
+      - POSTGRES_USER=legalai
+      - POSTGRES_PASSWORD=legalai
+    volumes:
+      - legal-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U legalai -d legalai"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - legal-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
 
   nlp-service:
     build: ./apps/ai-service
@@ -38,7 +80,8 @@ services:
 
   frontend:
     build:
-      context: ./apps/frontend
+      context: .
+      dockerfile: ./apps/frontend/Dockerfile
       args:
         VITE_API_URL: ""
     ports:
@@ -47,4 +90,6 @@ services:
 volumes:
   legal-backend-data:
   legal-nlp-data:
+  legal-postgres-data:
+  legal-redis-data:
 

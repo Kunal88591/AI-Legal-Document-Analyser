@@ -4,6 +4,35 @@ AI Legal Document Analyser has evolved into a production-ready, local-first **Le
 
 It targets first-pass legal review: upload contracts/NDAs, generate structured intelligence, ask Copilot-style questions (REST + WebSocket streaming), and visualize key obligations/dates via graph + timeline.
 
+## Problem Statement
+
+Contract review is high-friction for both legal and non-legal users:
+
+- documents are long, dense, and repetitive
+- risks (termination, liability, indemnity, confidentiality, renewal) are spread across many clauses
+- deadlines, fees, and obligations are easy to miss
+- teams need a fast first-pass triage before escalating to deeper review
+
+## Solution Overview
+
+This platform turns a raw document into **structured, explainable legal intelligence**:
+
+1. **Frontend (React + Vite):** upload, chat, and visualization workspace.
+2. **Backend (Spring WebFlux):** file ingestion + extraction + orchestration + WebSocket streaming.
+3. **AI service (FastAPI):** analysis and intelligence endpoints.
+4. **Postgres + Redis (optional but recommended):** durable history + caching foundations.
+
+## Key Features
+
+- Upload and analyze `PDF`, `DOCX`, `TXT`
+- Document comparison (`/api/documents/compare`)
+- Simplify selected text (`/api/documents/simplify`)
+- Copilot chat over a document (`/api/copilot/chat`)
+- WebSocket streaming for Copilot (`/ws/copilot`)
+- Graph + timeline views (`/api/intelligence/*`)
+- PDF export + text-to-speech for summaries (frontend)
+- Local-first stack (Docker Compose) with OSS-first components
+
 ## What’s New in v2.1
 
 - **Enterprise monorepo layout:** `apps/`, `packages/`, `infrastructure/`, `docs/`
@@ -47,31 +76,14 @@ docker compose down
 
 ```mermaid
 flowchart TB
-   U[User / Browser]
+   U[User / Browser] -->|HTTP 80| G[Gateway (nginx)]
+   G -->|UI /| F[Frontend (React + Vite)]
+   G -->|REST /api| B[Backend (Spring WebFlux)]
+   G -->|WS /ws| B
 
-   subgraph Edge
-      G[nginx gateway]
-   end
-
-   subgraph Apps
-      F[Frontend: React + Vite]
-      B[Backend: Spring Boot 3 WebFlux]
-      A[AI Service: FastAPI]
-   end
-
-   subgraph Data
-      P[(PostgreSQL)]
-      R[(Redis)]
-   end
-
-   U -->|HTTP :80| G
-   G -->|/| F
-   G -->|/api/*| B
-   G -->|/ws/*| B
-
-   B -->|REST (compat endpoints)| A
-   B -->|R2DBC| P
-   B -->|Redis reactive| R
+   B -->|REST| A[AI Service (FastAPI)]
+   B -->|R2DBC| P[(Postgres)]
+   B -->|Redis| R[(Redis)]
 ```
 
 ### Core Request Flows
@@ -114,14 +126,14 @@ sequenceDiagram
    end
    BE-->>UI: ChatResponse
 
-   UI->>GW: GET /api/copilot/history/{documentId}
-   GW->>BE: Forward /api/copilot/history/{documentId}
+   UI->>GW: GET /api/copilot/history/<documentId>
+   GW->>BE: Forward /api/copilot/history/<documentId>
    alt Postgres configured
       BE->>DB: SELECT messages ORDER BY created_at
       DB-->>BE: turns[]
       BE-->>UI: HistoryResponse
    else No Postgres
-      BE->>AI: GET /api/copilot/history/{documentId}
+      BE->>AI: GET /api/copilot/history/<documentId>
       AI-->>BE: HistoryResponse
       BE-->>UI: HistoryResponse
    end
@@ -139,7 +151,7 @@ sequenceDiagram
 
    UI->>GW: WS connect /ws/copilot
    GW->>WS: Upgrade websocket
-   UI->>WS: {documentId, message, history, ...}
+   UI->>WS: payload (documentId, message, history, ...)
    WS->>AI: POST /api/copilot/chat
    AI-->>WS: ChatResponse
    WS-->>UI: chunk frames (type=chunk)
@@ -150,13 +162,13 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-   UI[Frontend] -->|GET /api/intelligence/graph/{id}| BE[Backend]
-   BE -->|GET /api/intelligence/graph/{id}| AI[AI Service]
+   UI[Frontend] -->|GET /api/intelligence/graph/<documentId>| BE[Backend]
+   BE -->|GET /api/intelligence/graph/<documentId>| AI[AI Service]
    AI --> BE
    BE --> UI
 
-   UI -->|GET /api/intelligence/timeline/{id}| BE
-   BE -->|GET /api/intelligence/timeline/{id}| AI
+   UI -->|GET /api/intelligence/timeline/<documentId>| BE
+   BE -->|GET /api/intelligence/timeline/<documentId>| AI
 ```
 
 ## Repository Structure
@@ -174,31 +186,31 @@ flowchart LR
 ├── infrastructure/
 │   └── nginx/          # Reverse proxy routing (/ /api /ws)
 └── docs/
-      ├── ARCHITECTURE.md
-      └── MIGRATION.md
+   ├── ARCHITECTURE.md
+   └── MIGRATION.md
 ```
 
 ## Key Code Entry Points
 
 Frontend:
 
-- `apps/frontend/src/main.jsx`
-- `apps/frontend/src/app/router/router.jsx`
-- `apps/frontend/src/features/dashboard/Dashboard.jsx`
-- `apps/frontend/src/shared/services/apiClient.js`
+- [apps/frontend/src/main.jsx](apps/frontend/src/main.jsx)
+- [apps/frontend/src/app/router/router.jsx](apps/frontend/src/app/router/router.jsx)
+- [apps/frontend/src/features/dashboard/Dashboard.jsx](apps/frontend/src/features/dashboard/Dashboard.jsx)
+- [apps/frontend/src/shared/services/apiClient.js](apps/frontend/src/shared/services/apiClient.js)
 
 Backend:
 
-- `apps/backend/src/main/java/com/legalai/LegalAiApplication.java`
-- `apps/backend/src/main/java/com/legalai/modules/documents/api/DocumentController.java`
-- `apps/backend/src/main/java/com/legalai/modules/ai/api/CopilotController.java`
-- `apps/backend/src/main/java/com/legalai/infrastructure/websocket/WebSocketConfig.java`
+- [apps/backend/src/main/java/com/legalai/LegalAiApplication.java](apps/backend/src/main/java/com/legalai/LegalAiApplication.java)
+- [apps/backend/src/main/java/com/legalai/modules/documents/api/DocumentController.java](apps/backend/src/main/java/com/legalai/modules/documents/api/DocumentController.java)
+- [apps/backend/src/main/java/com/legalai/modules/ai/api/CopilotController.java](apps/backend/src/main/java/com/legalai/modules/ai/api/CopilotController.java)
+- [apps/backend/src/main/java/com/legalai/infrastructure/websocket/WebSocketConfig.java](apps/backend/src/main/java/com/legalai/infrastructure/websocket/WebSocketConfig.java)
 
 AI service:
 
-- `apps/ai-service/app/main.py`
-- `apps/ai-service/app/api/routes/legacy.py` (compat routes)
-- `apps/ai-service/app/services/intelligence_engine.py`
+- [apps/ai-service/app/main.py](apps/ai-service/app/main.py)
+- [apps/ai-service/app/api/routes/legacy.py](apps/ai-service/app/api/routes/legacy.py) (compat routes)
+- [apps/ai-service/app/services/intelligence_engine.py](apps/ai-service/app/services/intelligence_engine.py)
 
 ## API Surface (Backend)
 
@@ -206,9 +218,9 @@ AI service:
 - `POST /api/documents/compare` (multipart)
 - `POST /api/documents/simplify` (json)
 - `POST /api/copilot/chat` (json)
-- `GET /api/copilot/history/{documentId}`
-- `GET /api/intelligence/graph/{documentId}`
-- `GET /api/intelligence/timeline/{documentId}`
+- `GET /api/copilot/history/<documentId>`
+- `GET /api/intelligence/graph/<documentId>`
+- `GET /api/intelligence/timeline/<documentId>`
 - `WS /ws/copilot`
 
 ## Configuration
@@ -236,55 +248,32 @@ Common settings:
 - **Name:** Kunal Meena
 - **GitHub:** Kunal88591
 
-- the browser stays focused on interaction and presentation
-- the backend handles file compatibility and transport
-- the NLP service focuses on analysis and structured output
-
-That split also makes it easier to evolve each layer independently:
-
-- change the UI without touching parsing logic
-- improve document extraction without retraining NLP logic
-- replace the rule-based model later without rewriting the upload flow
-
 ## Design Principles
 
-- **Structure first:** users should see tags, risks, and highlights before reading paragraphs.
-- **Explainable output:** every summary should still map back to the underlying text.
-- **Fast first pass:** the system should help decide what deserves attention.
-- **Jurisdiction-aware review:** the same clause can have different risk depending on location.
-- **Practical UX:** upload, review, simplify, search, and export should all feel like one workflow.
+- **Structure first:** show risks and highlights before long prose.
+- **Explainable output:** keep responses grounded in the document text.
+- **Fast first pass:** reduce review time for triage.
+- **Local-first:** run the full stack with OSS components.
 
-## Current Capabilities
+## Notes
 
-- contract and clause detection
-- risk scoring and risk labels
-- 5-line summary cards
-- simplified plain-language summary
-- important dates timeline
-- search within analyzed text
-- quick question answers
-- PDF report export
-- text-to-speech playback
-- dark-mode-ready dashboard styling
+- Backend requires **Java 17** (Spring Boot 3).
+- Mermaid diagrams in this README are GitHub-compatible (avoid `{}` in diagram labels).
+
+## Documentation
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- [docs/MIGRATION.md](docs/MIGRATION.md)
 
 ## Limitations
 
-This is a smart review assistant, not a legal advice system.
+This is a smart review assistant, not legal advice.
 
-It can help a user spot issues faster, but it should not replace a qualified legal review for high-stakes decisions.
+It helps surface risks and obligations faster, but high-stakes decisions should still involve qualified legal review.
 
-## Useful Files
+## Roadmap (Next)
 
-- [frontend-react/src/DocumentUpload.js](frontend-react/src/DocumentUpload.js)
-- [frontend-react/src/DocumentUpload.css](frontend-react/src/DocumentUpload.css)
-- [backend-java/src/main/java/com/legalanalyzer/controller/DocumentController.java](backend-java/src/main/java/com/legalanalyzer/controller/DocumentController.java)
-- [python-ml-services/nlp-service/app.py](python-ml-services/nlp-service/app.py)
-- [docker-compose.yml](docker-compose.yml)
-
-## Next Improvements
-
-- save analysis history and document versions
-- add comparison between document revisions
-- improve clause classification with a stronger model
-- support more file types and OCR for scanned documents
-- add persistent audit logs for review sessions
+- Persist document metadata + analysis results in Postgres (not just chat turns)
+- Add background job processing for OCR/embedding/indexing
+- Add authentication/authorization (JWT-ready) and audit logging
+- Harden rate limiting using Redis token-bucket (feature-flagged)

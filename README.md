@@ -76,14 +76,22 @@ docker compose down
 
 ```mermaid
 flowchart TB
-   U[User / Browser] -->|HTTP 80| G[Gateway (nginx)]
-   G -->|UI /| F[Frontend (React + Vite)]
-   G -->|REST /api| B[Backend (Spring WebFlux)]
-   G -->|WS /ws| B
 
-   B -->|REST| A[AI Service (FastAPI)]
-   B -->|R2DBC| P[(Postgres)]
-   B -->|Redis| R[(Redis)]
+    U[User / Browser] -->|HTTP 80| G[Gateway nginx]
+
+    G -->|UI Requests| F[Frontend React + Vite]
+    G -->|REST API| B[Backend Spring WebFlux]
+    G -->|WebSocket| B
+
+    B -->|REST Calls| A[AI Service FastAPI]
+
+    B -->|R2DBC| P[(PostgreSQL)]
+    B -->|Redis Cache| R[(Redis)]
+
+    A -->|Vector Storage| C[(ChromaDB)]
+    A -->|LLM Inference| O[Ollama Llama3]
+
+    F -->|Realtime Chat| B
 ```
 
 ### Core Request Flows

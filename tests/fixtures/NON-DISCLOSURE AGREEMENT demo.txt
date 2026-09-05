@@ -1,0 +1,12 @@
+NON-DISCLOSURE AGREEMENT
+
+This Non-Disclosure Agreement (Agreement) is entered into as of May 15, 2025, by and between Kunal Technologies Pvt. Ltd. (Disclosing Party) and TechPartner Solutions (Receiving Party).
+
+1. Confidential Information Any technical, business, or financial information disclosed in written or oral form.
+2. Obligation of Confidentiality Receiving Party shall not disclose, reproduce, or use any confidential information for personal gain.
+3. Term This Agreement is valid for 3 years from the date of signature.
+
+IN WITNESS WHEREOF, the parties have executed this Agreement.
+
+Kunal Meena (CEO, Kunal Technologies)  
+Ravi Sharma (CTO, TechPartner Solutions)

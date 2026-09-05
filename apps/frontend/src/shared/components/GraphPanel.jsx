@@ -45,7 +45,7 @@ function GraphPanel({ graph, onSelectClause }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="rounded-[28px] border border-white/10 bg-slate-950/70 p-5 shadow-glow backdrop-blur-2xl"
+      className="rounded-[28px] border border-white/10 bg-slate-950/70 p-5 shadow-glow backdrop-blur-2xl min-w-0 max-w-full overflow-hidden"
     >
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
@@ -60,7 +60,7 @@ function GraphPanel({ graph, onSelectClause }) {
       </div>
 
       {flowNodes.length ? (
-        <div className="h-[520px] overflow-hidden rounded-[24px] border border-white/10 bg-slate-900/80">
+        <div className="h-[520px] w-full max-w-full overflow-hidden rounded-[24px] border border-white/10 bg-slate-900/80">
           <ReactFlow
             nodes={flowNodes}
             edges={flowEdges}

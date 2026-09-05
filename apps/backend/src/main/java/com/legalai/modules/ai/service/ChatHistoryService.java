@@ -23,12 +23,12 @@ public class ChatHistoryService {
     }
 
     public Mono<ChatResponse> chatAndPersist(ChatRequest request) {
-    return persistentStore()
-        .flatMap(store -> nlpGatewayClient.chat(request)
-            .flatMap(response -> persistTurns(store, request, response)
-                .onErrorResume(error -> Mono.empty())
-                .thenReturn(response)))
-        .switchIfEmpty(nlpGatewayClient.chat(request));
+        return persistentStore()
+            .flatMap(store -> nlpGatewayClient.chat(request)
+                .flatMap(response -> persistTurns(store, request, response)
+                    .onErrorResume(error -> Mono.empty())
+                    .then(Mono.just(response))))
+            .switchIfEmpty(nlpGatewayClient.chat(request));
     }
 
     public Mono<HistoryResponse> history(String documentId) {

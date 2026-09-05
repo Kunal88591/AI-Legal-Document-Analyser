@@ -15,7 +15,7 @@ function ComparisonPanel({ comparison }) {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.35 }}
-      className="rounded-[28px] border border-white/10 bg-slate-950/70 p-5 shadow-glow backdrop-blur-2xl"
+      className="rounded-[28px] border border-white/10 bg-slate-950/70 p-5 shadow-glow backdrop-blur-2xl min-w-0 max-w-full overflow-hidden"
     >
       <div className="mb-4 flex items-center justify-between gap-3">
         <div>
@@ -53,15 +53,17 @@ function ComparisonPanel({ comparison }) {
             </div>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-[24px] border border-white/10 bg-slate-900/80">
-            <ReactDiffViewer
-              oldValue={oldText || result.oldVersion || ''}
-              newValue={newText || result.newVersion || ''}
-              splitView
-              compareMethod={DiffMethod.WORDS}
-              hideLineNumbers={false}
-              useDarkTheme
-            />
+          <div className="mt-4 overflow-x-auto max-w-full rounded-[24px] border border-white/10 bg-slate-900/80 scrollbar-thin scrollbar-thumb-white/10">
+            <div className="min-w-[640px]">
+              <ReactDiffViewer
+                oldValue={oldText || result.oldVersion || ''}
+                newValue={newText || result.newVersion || ''}
+                splitView
+                compareMethod={DiffMethod.WORDS}
+                hideLineNumbers={false}
+                useDarkTheme
+              />
+            </div>
           </div>
 
           <div className="mt-4 grid gap-3 lg:grid-cols-3">

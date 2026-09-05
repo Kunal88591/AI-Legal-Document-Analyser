@@ -13,34 +13,34 @@ engine = IntelligenceEngine()
 
 
 class CompareRequest(BaseModel):
-    oldFileName: str = "Old Contract"
-    newFileName: str = "New Contract"
-    oldText: str = ""
-    newText: str = ""
-    jurisdiction: str = "Global"
+    oldFileName: Optional[str] = "Old Contract"
+    newFileName: Optional[str] = "New Contract"
+    oldText: Optional[str] = ""
+    newText: Optional[str] = ""
+    jurisdiction: Optional[str] = "Global"
 
 
 class ChatTurn(BaseModel):
-    role: str = Field(default="user")
-    content: str = Field(default="")
+    role: Optional[str] = "user"
+    content: Optional[str] = ""
     timestamp: Optional[str] = None
 
 
 class ChatRequest(BaseModel):
-    documentId: str = "unknown"
-    message: str = ""
-    history: List[Dict[str, Any]] = Field(default_factory=list)
-    jurisdiction: str = "Global"
+    documentId: Optional[str] = "unknown"
+    message: Optional[str] = ""
+    history: Optional[List[Any]] = Field(default_factory=list)
+    jurisdiction: Optional[str] = "Global"
 
 
 class RetrievalRequest(BaseModel):
-    documentId: str = "unknown"
-    query: str = ""
-    topK: int = 5
+    documentId: Optional[str] = "unknown"
+    query: Optional[str] = ""
+    topK: Optional[int] = 5
 
 
 class SimplifyRequest(BaseModel):
-    text: str = ""
+    text: Optional[str] = ""
 
 
 @router.get("/health")
@@ -93,10 +93,10 @@ def compare_contracts(payload: CompareRequest) -> Dict[str, Any]:
 @router.post("/api/copilot/chat")
 def copilot_chat(payload: ChatRequest) -> Dict[str, Any]:
     return engine.chat(
-        payload.documentId,
-        payload.message,
-        payload.history,
-        payload.jurisdiction,
+        payload.documentId or "unknown",
+        payload.message or "",
+        payload.history or [],
+        payload.jurisdiction or "Global",
     )
 
 

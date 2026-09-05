@@ -61,11 +61,8 @@ public class DocumentExtractionService {
             warnings.add("No machine-readable PDF text was detected.");
         }
 
-        if (normalizedExtension.equals("pdf") && trimmed.length() > 0) {
-            ocrConfidence = Math.min(1.0d, Math.max(0.25d, Math.min(0.98d, trimmed.length() / 2500.0d)));
-        } else if (trimmed.length() > 0) {
-            ocrConfidence = Math.min(0.95d, Math.max(0.35d, trimmed.length() / 4000.0d));
-        }
+        // Only assign genuine OCR confidence if OCR actually ran; for direct digital parsing, OCR is not used.
+        // Fabricating confidence based on text length is misleading and inaccurate.
 
         return new DocumentExtractionResult(
                 fileName,
